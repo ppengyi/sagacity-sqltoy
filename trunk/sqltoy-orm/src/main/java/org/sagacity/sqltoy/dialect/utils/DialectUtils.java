@@ -393,7 +393,10 @@ public class DialectUtils {
 				// 剔除嵌套的子查询语句中select 和 from 之间的内容,便于判断统计函数的作用位置
 				selectFields = clearSymSelectFromSql(selectFields);
 				// 存在统计函数 update by chenrenfei ,date: 2017-2-24
-				if (StringUtil.matches(selectFields, STAT_PATTERN)) {
+				// 如果本身传入的就是count统计语句 不要修改为 count(1) 使用本身
+				if (selectFields.toUpperCase().trim().startsWith("COUNT(")) {
+					countQueryStr.append(query_tmp);
+				}else if (StringUtil.matches(selectFields, STAT_PATTERN)) {
 					countQueryStr.append("select ").append(countPart).append(" from (").append(query_tmp)
 							.append(") sag_count_tmpTable ");
 				} else {
@@ -2904,15 +2907,16 @@ public class DialectUtils {
 	 * @return
 	 */
 	public static int getParamsCount(String queryStr) {
-		if (StringUtil.isBlank(queryStr)) {
-			return 0;
-		}
-		String sql = SqlConfigParseUtils.clearDblQuestMark(queryStr);
-		// 判断sql中参数模式，?或:named 模式，两种模式不可以混合使用
-		if (sql.indexOf(SqlConfigParseUtils.ARG_NAME) == -1) {
-			return StringUtil.matchCnt(sql, SqlToyConstants.SQL_NAMED_PATTERN);
-		}
-		return StringUtil.matchCnt(sql, SqlConfigParseUtils.ARG_REGEX);
+		return convertParamsToNamed(queryStr, 0).getParamCnt();
+		// if (StringUtil.isBlank(queryStr)) {
+		// 	return 0;
+		// }
+		// String sql = SqlConfigParseUtils.clearDblQuestMark(queryStr);
+		// // 判断sql中参数模式，?或:named 模式，两种模式不可以混合使用
+		// if (sql.indexOf(SqlConfigParseUtils.ARG_NAME) == -1) {
+		// 	return StringUtil.matchCnt(sql, SqlToyConstants.SQL_NAMED_PATTERN);
+		// }
+		// return StringUtil.matchCnt(sql, SqlConfigParseUtils.ARG_REGEX);
 	}
 
 	/**

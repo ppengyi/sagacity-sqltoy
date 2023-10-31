@@ -3,13 +3,13 @@
  */
 package org.sagacity.sqltoy.utils;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import javax.sql.DataSource;
 
@@ -106,5 +106,32 @@ public class ParallelUtils {
 		}
 		return results;
 	}
+
+
+	/**
+	 * 对集合进行相关排序
+	 *
+	 * @param rows        集合
+	 * @param sort        排序
+	 * @param sortHandler 集合内容排序字段获取
+	 * @param <T>
+	 * @param <R>
+	 * @return 排序后的值 始终按照sort进行排序 如果sort中没有rows对应的值 则忽略掉rows中对应的值
+	 */
+	public static <T, R> List<T> sort(Collection<T> rows,
+									  Collection<R> sort,
+									  Function<T, R> sortHandler) {
+		if (rows == null) {
+			return Collections.emptyList();
+		}
+		if (sort == null || sortHandler == null || rows.isEmpty()) {
+			return rows.stream().toList();
+		}
+		return sort.stream().map(r ->
+						rows.stream().filter(s -> r.equals(sortHandler.apply(s))).findAny().orElse(null)
+				)
+				.filter(Objects::nonNull).collect(Collectors.toList());
+	}
+
 
 }
