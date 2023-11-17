@@ -47,6 +47,8 @@ import org.sagacity.sqltoy.model.QueryExecutor;
 import org.sagacity.sqltoy.model.QueryResult;
 import org.sagacity.sqltoy.model.TableMeta;
 import org.sagacity.sqltoy.model.inner.QueryExecutorExtend;
+import org.sagacity.sqltoy.plugins.IUnifyFieldsHandler;
+import org.sagacity.sqltoy.plugins.UnifyUpdateFieldsController;
 import org.sagacity.sqltoy.utils.BeanUtil;
 import org.sagacity.sqltoy.utils.DataSourceUtils;
 import org.sagacity.sqltoy.utils.DataSourceUtils.DBType;
@@ -385,6 +387,10 @@ public class DefaultDialectUtils {
 				break;
 			}
 		}
+		// 统一字段赋值处理
+		IUnifyFieldsHandler unifyFieldsHandler = UnifyUpdateFieldsController.useUnifyFields()
+				? sqlToyContext.getUnifyFieldsHandler()
+				: null;
 		final Object[] fieldValues = tempFieldValues;
 		final boolean hasUpdateRow = (updateRowHandler == null) ? false : true;
 		// 组织select * from table for update 语句
@@ -426,6 +432,34 @@ public class DefaultDialectUtils {
 										}
 									});
 								});
+								// 考虑公共字段修改
+								if (unifyFieldsHandler != null && unifyFieldsHandler.updateUnifyFields() != null) {
+									Map<String, Object> updateProps = unifyFieldsHandler.updateUnifyFields();
+									String field;
+									FieldMeta fieldMeta;
+									Object fieldValue;
+									for (Map.Entry<String, Object> entry : updateProps.entrySet()) {
+										field = entry.getKey();
+										fieldValue = entry.getValue();
+										fieldMeta = entityMeta.getFieldMeta(field);
+										// 存在公共的修改属性
+										if (fieldMeta != null) {
+											// 强制修改
+											if (unifyFieldsHandler.forceUpdateFields() != null
+													&& unifyFieldsHandler.forceUpdateFields().contains(field)) {
+												resultUpdate(conn, finalRs, fieldMeta, fieldValue, dbType, false);
+											} else {
+												// 反射对象属性取值
+												Object pojoFieldValue = BeanUtil.getProperty(entity, field);
+												// 不为null，则以对象传递的值为准
+												if (pojoFieldValue != null) {
+													fieldValue = pojoFieldValue;
+												}
+												resultUpdate(conn, finalRs, fieldMeta, fieldValue, dbType, false);
+											}
+										}
+									}
+								}
 								// 执行update
 								finalRs.updateRow();
 							}
@@ -840,6 +874,7 @@ public class DefaultDialectUtils {
 	 * @return
 	 * @throws Exception
 	 */
+	@SuppressWarnings("unchecked")
 	private static Map<String, ColumnMeta> getTableIndexes(String catalog, String schema, String tableName,
 			Connection conn, final Integer dbType, String dialect) throws Exception {
 		ResultSet rs = null;
