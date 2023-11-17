@@ -4,6 +4,7 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.date.DateTime;
 import cn.hutool.core.date.DateUtil;
+import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.NumberUtil;
 import cn.hutool.core.util.ObjectUtil;
@@ -12,10 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.*;
 
 /**
  * @author jerry
@@ -26,10 +24,21 @@ public class MapParam extends HashMap<String, Object> implements Serializable {
     protected final Logger logger = LoggerFactory.getLogger(MapParam.class);
 
 
+    public MapParam(Map<? extends String, ?> m) {
+        super(m);
+    }
+
+    public MapParam() {
+    }
+
     public static MapParam of(String key, Object value) {
         MapParam obj = new MapParam();
         obj.obj(key, value);
         return obj;
+    }
+
+    public MapParam ofNew(){
+        return new MapParam(this);
     }
 
     public static MapParam of(Object request) {

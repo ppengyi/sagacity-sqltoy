@@ -2914,16 +2914,16 @@ public class DialectUtils {
 	 * @return
 	 */
 	public static int getParamsCount(String queryStr) {
-		return convertParamsToNamed(queryStr, 0).getParamCnt();
-		// if (StringUtil.isBlank(queryStr)) {
-		// 	return 0;
-		// }
-		// String sql = SqlConfigParseUtils.clearDblQuestMark(queryStr);
-		// // 判断sql中参数模式，?或:named 模式，两种模式不可以混合使用
-		// if (sql.indexOf(SqlConfigParseUtils.ARG_NAME) == -1) {
-		// 	return StringUtil.matchCnt(sql, SqlToyConstants.SQL_NAMED_PATTERN);
-		// }
-		// return StringUtil.matchCnt(sql, SqlConfigParseUtils.ARG_REGEX);
+		// return convertParamsToNamed(queryStr, 0).getParamCnt();
+		if (StringUtil.isBlank(queryStr)) {
+			return 0;
+		}
+		String sql = SqlConfigParseUtils.clearDblQuestMark(queryStr);
+		// 判断sql中参数模式，?或:named 模式，两种模式不可以混合使用
+		if (!sql.contains(SqlConfigParseUtils.ARG_NAME)) {
+			return convertParamsToNamed(queryStr, 0).getParamCnt();
+		}
+		return StringUtil.matchCnt(sql, SqlConfigParseUtils.ARG_REGEX);
 	}
 
 	/**

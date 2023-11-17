@@ -30,9 +30,10 @@ import java.util.stream.Collectors;
 public class DbSql {
     protected final Logger log = LoggerFactory.getLogger(DbSql.class);
     protected SqlToyLazyDao dao;
+    protected String logicalDeletion;
 
 
-    private static final ThreadLocal<ConcurrentHashMap<String,Object>> local = ThreadLocal.withInitial(() -> {
+    private static final ThreadLocal<ConcurrentHashMap<String, Object>> local = ThreadLocal.withInitial(() -> {
         ConcurrentHashMap<String, Object> map = new ConcurrentHashMap<>();
         map.put("requestId", IdUtil.fastSimpleUUID());
         return map;
@@ -40,6 +41,7 @@ public class DbSql {
 
     /**
      * 线程缓存
+     *
      * @param key
      * @param handler
      * @param <T>
@@ -62,36 +64,38 @@ public class DbSql {
 
     public void setDao(SqlToyLazyDao dao) {
         this.dao = dao;
+        this.logicalDeletion = dao.getSqlToyContext().getLogicalDeletion();
     }
 
-    public <T extends Serializable> T loadById(Class<T> tClass, Long id) {
+
+    public <T extends Serializable> T getById(Class<T> tClass, Serializable id) {
         if (id == null) return null;
-        return this.dao.loadEntity(tClass, EntityQuery.create().where("is_delete = false and id = ?").values(id));
+        return this.dao.loadEntity(tClass, EntityQuery.create().where(StrFormatter.format("not {} and id = ?", this.logicalDeletion)).values(id));
     }
 
     /**
      * 保证同一个对象在 同一个线程查询的时候 直接使用线程缓存 手动使用
      * 单体服务有用 多服务没啥用
      */
-    public <T extends Serializable> T loadByIdTCache(Class<T> tClass, Long id) {
-        return cache(buildTCacheKey(tClass, id), () -> loadById(tClass, id));
+    public <T extends Serializable> T getByIdTCache(Class<T> tClass, Serializable id) {
+        return cache(buildTCacheKey(tClass, id), () -> getById(tClass, id));
     }
 
-    public <T extends Serializable> List<T> loadByIds(Class<T> voClass, Long... ids) {
-        return this.loadByIds(voClass, CollUtil.newArrayList(ids));
+    public <T extends Serializable> List<T> getByIds(Class<T> voClass, Serializable... ids) {
+        return this.getByIds(voClass, CollUtil.newArrayList(ids));
     }
 
-    public <T extends Serializable> List<T> loadByIdsTCache(Class<T> voClass, Long... ids) {
-        return cache(buildTCacheKey(voClass, ids), () -> loadByIds(voClass, ids));
+    public <T extends Serializable> List<T> getByIdsTCache(Class<T> voClass, Serializable... ids) {
+        return cache(buildTCacheKey(voClass, ids), () -> getByIds(voClass, ids));
 
     }
 
 
-    public <T extends Serializable> List<T> loadByIds(Class<T> voClass, Collection<Long> ids) {
+    public <T extends Serializable> List<T> getByIds(Class<T> voClass, Collection<Serializable> ids) {
         if (ArrayUtil.isEmpty(ids)) {
             return Collections.emptyList();
         }
-        String sql = "select * from " + getEntityTableName(voClass) + " where is_delete = false and id in (:ids)";
+        String sql = "select * from " + getEntityTableName(voClass) + " where not " + this.logicalDeletion + " and id in (:ids)";
         return this.dao.findBySql(sql, MapParam.of("ids", ids), voClass);
     }
 
@@ -99,14 +103,14 @@ public class DbSql {
     /**
      * 分页查询
      */
-    public <T> Page<T> findPageBySql(final int page, final int size, final String sqlOrSqlId, final Map<String, Object> paramsMap, final Class<T> resultType) {
+    public <T> Page<T> getPage(final int page, final int size, final String sqlOrSqlId, final Map<String, Object> paramsMap, final Class<T> resultType) {
         return this.dao.findPageBySql(new Page<>(size, page), sqlOrSqlId, paramsMap, resultType);
     }
 
     /**
      * 分页查询
      */
-    public <T> Page<T> findPageBySql(final int page, final int size, final String sqlOrSqlId, final Map<String, Object> paramsMap, final Class<T> resultType, Boolean skipQueryCount) {
+    public <T> Page<T> getPage(final int page, final int size, final String sqlOrSqlId, final Map<String, Object> paramsMap, final Class<T> resultType, Boolean skipQueryCount) {
         return this.dao.findPageBySql(new Page<>(size, page)
                 .setSkipQueryCount(skipQueryCount), sqlOrSqlId, paramsMap, resultType);
     }
@@ -115,7 +119,7 @@ public class DbSql {
     /**
      * 分页查询
      */
-    public <T> Page<T> findPageBySqlSkipCount(final int page, final int size, final String sqlOrSqlId, final Map<String, Object> paramsMap, final Class<T> resultType) {
+    public <T> Page<T> getPageSkipCount(final int page, final int size, final String sqlOrSqlId, final Map<String, Object> paramsMap, final Class<T> resultType) {
         return this.dao.findPageBySql(new Page<>(size, page).setSkipQueryCount(true), sqlOrSqlId, paramsMap, resultType);
     }
 
@@ -123,7 +127,7 @@ public class DbSql {
     /**
      * 分页查询
      */
-    public <T, R> Page<R> findPageBySqlSkipCount(final int page, final int size, final String sqlOrSqlId, final Map<String, Object> paramsMap, final Class<T> resultType, Function<List<T>, List<R>> handler) {
+    public <T, R> Page<R> getPageSkipCount(final int page, final int size, final String sqlOrSqlId, final Map<String, Object> paramsMap, final Class<T> resultType, Function<List<T>, List<R>> handler) {
         Page<T> pageBySql = this.dao.findPageBySql(new Page<T>(size, page).setSkipQueryCount(true), sqlOrSqlId, paramsMap, resultType);
         return page2Page(page, size, handler, pageBySql);
     }
@@ -132,8 +136,23 @@ public class DbSql {
     /**
      * 提供基于Map传参的top查询
      */
-    public <T> List<T> findTopBySql(final String sqlOrSqlId, final Map<String, Object> paramsMap, final Class<T> resultType, final double topSize) {
+    public <T> List<T> get(final String sqlOrSqlId, final Map<String, Object> paramsMap, final Class<T> resultType) {
+        return this.dao.findBySql(sqlOrSqlId, paramsMap, resultType);
+    }
+
+    /**
+     * 提供基于Map传参的top查询
+     */
+    public <T> List<T> get(final String sqlOrSqlId, final Map<String, Object> paramsMap, final Class<T> resultType, final double topSize) {
         return this.dao.findTopBySql(sqlOrSqlId, paramsMap, resultType, topSize);
+    }
+
+    /**
+     * 提供基于Map传参的top查询
+     */
+    public <T> T getOne(final String sqlOrSqlId, final Map<String, Object> paramsMap, final Class<T> resultType) {
+        List<T> top = this.dao.findTopBySql(sqlOrSqlId, paramsMap, resultType, 1);
+        return CollUtil.get(top, 1);
     }
 
 
@@ -149,10 +168,12 @@ public class DbSql {
      * @return List<resultType>
      */
     public <T> List<T> search(final String sql,
-                              final Long[] ids,
+                              final Serializable[] ids,
                               final String keyFiled,
                               final MapParam searchParams,
-                              final Class<T> resultType) {
+                              final Class<T> resultType,
+                              final int size
+    ) {
         if (StrUtil.isEmpty(sql)) {
             return Collections.emptyList();
         }
@@ -160,39 +181,29 @@ public class DbSql {
         String sqlFragment = StrUtil.format("""
                 #[ and {keyFiled} in (:y_ids) ]
                 #[ and not {keyFiled} in (:y_notIds) ]
-                """, MapParam.of("keyFiled",keyFiled));
+                """, MapParam.of("keyFiled", keyFiled));
 
         ArrayList<T> ts = new ArrayList<>();
         if (ArrayUtil.isNotEmpty(ids)) {
             ts.addAll(this.dao.findTopBySql(sql,
-                    MapParam.of("y_ids", ids)
+                    searchParams.ofNew()._num("y_ids", ids)
                             .include("_s", sqlFragment)
                     , resultType, ids.length));
             searchParams._num("y_notIds", ids);
         }
         ts.addAll(this.dao.findTopBySql(sql,
-                searchParams.include("_s", sqlFragment), resultType, 5));
+                searchParams.include("_s", sqlFragment), resultType, size));
         return ts;
     }
 
-    /**
-     * 提供基于Map传参的top查询
-     */
-    public <T> List<T> findBySql(final String sqlOrSqlId, final Map<String, Object> paramsMap, final Class<T> resultType) {
-        return this.dao.findBySql(sqlOrSqlId, paramsMap, resultType);
+    public <T> List<T> search(final String sql,
+                              final Serializable[] ids,
+                              final String keyFiled,
+                              final MapParam searchParams,
+                              final Class<T> resultType
+    ) {
+        return this.search(sql, ids, keyFiled, searchParams, resultType, 10);
     }
-
-    /**
-     * 提供基于Map传参的top查询
-     */
-    public <T> List<T> findBySqlNext(final String sqlOrSqlId, Map<String, Object> paramsMap, final Class<T> resultType, Long nextId, Long size) {
-        if (paramsMap == null) {
-            paramsMap = new HashMap<>();
-        }
-        paramsMap.put("nextId", Optional.ofNullable(nextId).orElse(0L));
-        return findTopBySql(sqlOrSqlId, paramsMap, resultType, size);
-    }
-
 
     /**
      * 获取一个实体 默认 查询1个
@@ -201,23 +212,23 @@ public class DbSql {
         return this.dao.loadEntity(entityClass, entityQuery.top(1));
     }
 
-    public <T> List<T> findEntity(Class<T> entityClass, EntityQuery entityQuery) {
+    public <T> List<T> getEntity(Class<T> entityClass, EntityQuery entityQuery) {
         return this.dao.findEntity(entityClass, entityQuery);
     }
 
-    public <T> Long getCount(Class<T> entityClass, EntityQuery entityQuery) {
+    public <T> Long count(Class<T> entityClass, EntityQuery entityQuery) {
         return this.dao.getCount(entityClass, entityQuery);
     }
 
-    public <T extends Serializable> Long deleteById(Class<T> entityClass, Long id) {
+    public <T extends Serializable> Long deleteById(Class<T> entityClass, Serializable id) {
         if (id == null) {
             return 0L;
         }
-        return this.dao.updateByQuery(entityClass, EntityUpdate.create().where("id = ?").values(id).set("is_delete", true));
+        return this.dao.updateByQuery(entityClass, EntityUpdate.create().where("id = ?").values(id).set(this.logicalDeletion, true));
     }
 
     public <T extends Serializable> Long deleteByQuery(Class<T> entityClass, String where, final Map<String, Object> paramsMap) {
-        return this.dao.updateByQuery(entityClass, EntityUpdate.create().where(where).values(paramsMap).set("is_delete", true));
+        return this.dao.updateByQuery(entityClass, EntityUpdate.create().where(where).values(paramsMap).set(this.logicalDeletion, true));
     }
 
     /**
@@ -302,7 +313,7 @@ public class DbSql {
         if (StrUtil.isEmpty(tableName)) {
             return;
         }
-        Long id = getEntityId(e);
+        Serializable id = getEntityId(e);
         if (id == null) {
             return;
         }
@@ -313,13 +324,13 @@ public class DbSql {
     }
 
 
-    private <T extends Serializable> Long getEntityId(T entity) {
+    private <T extends Serializable> Serializable getEntityId(T entity) {
 
         if (entity == null || !isEntity(entity.getClass())) {
             return null;
         }
         try {
-            return (Long) entity.getClass().getMethod("getId").invoke(entity);
+            return (Serializable) entity.getClass().getMethod("getId").invoke(entity);
         } catch (NoSuchMethodException ignored) {
         } catch (Exception e) {
             log.warn("Exception while getting entity id", e);
@@ -350,16 +361,14 @@ public class DbSql {
     }
 
 
-
-
     /**
      * 对集合进行相关排序
      *
      * @param rows        集合
      * @param sort        排序
      * @param sortHandler 集合内容排序字段获取
-     * @param <T> 集合对象类型
-     * @param <R> 排序值比较对象类型
+     * @param <T>         集合对象类型
+     * @param <R>         排序值比较对象类型
      * @return 排序后的值 始终按照sort进行排序 如果sort中没有rows对应的值 则忽略掉rows中对应的值
      */
     public static <T, R> List<T> sort(Collection<T> rows,

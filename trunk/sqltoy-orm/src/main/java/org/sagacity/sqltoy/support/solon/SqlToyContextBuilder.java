@@ -128,6 +128,10 @@ public class SqlToyContextBuilder {
             sqlToyContext.setDebug(properties.getDebug());
         }
 
+        if (properties.getLogicalDeletion() != null) {
+            sqlToyContext.logicalDeletion(properties.getLogicalDeletion());
+        }
+
         // sql执行超过多长时间则打印提醒(默认30秒)
         if (properties.getPrintSqlTimeoutMillis() != null) {
             sqlToyContext.setPrintSqlTimeoutMillis(properties.getPrintSqlTimeoutMillis());

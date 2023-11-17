@@ -209,6 +209,8 @@ public class SqlToyContext {
 	 */
 	private boolean debug = false;
 
+	private String logicalDeletion = "is_delete";
+
 	/**
 	 * 超时打印sql(毫秒,默认30秒)
 	 */
@@ -1219,4 +1221,12 @@ public class SqlToyContext {
 		this.autoDDL = autoDDL;
 	}
 
+	public String getLogicalDeletion() {
+		return logicalDeletion;
+	}
+
+	public SqlToyContext logicalDeletion(String logicalDeletion) {
+		this.logicalDeletion = logicalDeletion;
+		return this;
+	}
 }

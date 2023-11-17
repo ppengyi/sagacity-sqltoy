@@ -64,6 +64,11 @@ public class SqlToyContextProperties implements Serializable {
     private Boolean printSql;
 
     /**
+     * 逻辑删除字段 针对 DbSql 使用逻辑删除
+     */
+    private String logicalDeletion = "is_delete";
+
+    /**
      * 批量操作，每批次数量,默认200
      */
     private Integer batchSize;
@@ -603,6 +608,15 @@ public class SqlToyContextProperties implements Serializable {
 
     public SqlToyContextProperties printSql(Boolean printSql) {
         this.printSql = printSql;
+        return this;
+    }
+
+    public String getLogicalDeletion() {
+        return logicalDeletion;
+    }
+
+    public SqlToyContextProperties logicalDeletion(String logicalDeletion) {
+        this.logicalDeletion = logicalDeletion;
         return this;
     }
 }

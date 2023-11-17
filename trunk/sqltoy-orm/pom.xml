@@ -3,10 +3,10 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.sagframe</groupId>
-	<version>5.2.75</version>
-	<name>sagacity-sqltoy</name>
-	<description>sagacity-sqltoy</description>
-	<artifactId>sagacity-sqltoy</artifactId>
+	<version>1.0.2</version>
+	<name>sagacity-sqltoy-plus</name>
+	<description>sagacity-sqltoy-plus</description>
+	<artifactId>sagacity-sqltoy-plus</artifactId>
 	<url>https://github.com/sagframe/sagacity-sqltoy</url>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -30,7 +30,7 @@
 		<taos-jdbcdriver.version>3.2.7</taos-jdbcdriver.version>
 		<druid.version>1.2.20</druid.version>
 		<transmittable-thread-local>2.14.3</transmittable-thread-local>
-		<solon.version>2.5.10</solon.version>
+		<solon.version>2.6.0</solon.version>
 		<hutool.version>5.8.22</hutool.version>
 	</properties>
 	<licenses>
